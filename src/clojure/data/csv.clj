@@ -1,0 +1,174 @@
+;;
+;; Straight port of https://raw.githubusercontent.com/testdouble/clojurescript.csv/master/src/testdouble/cljs/csv.cljs
+;; by LT
+(ns clojure.data.csv
+  (:require [clojure.string :as str]))
+
+(defn- escape-quotes [s]
+  (str/replace s "\"" "\"\""))
+
+(defn- wrap-in-quotes [s]
+  (str "\"" (escape-quotes s) "\""))
+
+(defn- separate [data separator quote?]
+  (str/join separator
+            (cond->> data
+              :always (map str)
+              quote? (map wrap-in-quotes))))
+
+(defn- write-data [data separator newline quote?]
+  (str/join newline (map #(separate % separator quote?) data)))
+
+(defn- conj-in [coll index x]
+  (assoc coll index (conj (nth coll index) x)))
+
+(def ^:private newlines
+  {:lf "\n" :cr+lf "\r\n"})
+
+(def ^:private newline-error-message
+  (str ":newline must be one of [" (str/join "," (keys newlines)) "]"))
+
+(defn write-csv
+  "Writes data to String in CSV-format.
+  Accepts the following options:
+  :separator - field separator
+               (default ,)
+  :newline   - line separator
+               (accepts :lf or :cr+lf)
+               (default :lf)
+  :quote?    - wrap in quotes
+               (default false)"
+
+  {:arglists '([data] [data & options]) :added "0.1.0"}
+  [data & options]
+  (let [{:keys [separator newline quote?] :or {separator "," newline :lf quote? false}} options]
+    (if-let [newline-char (get newlines newline)]
+      (write-data data
+                  separator
+                  newline-char
+                  quote?)
+      (throw (clojerl.Error. newline-error-message)))))
+
+(defn read-csv
+  "Reads data from String in CSV-format."
+  {:arglists '([data] [data & options]) :added "0.3.0"}
+  [data & options]
+  (let [{:keys [separator newline] :or {separator "," newline :lf}} options]
+    (if-let [newline-char (get newlines newline)]
+      (let [data-length (count data)]
+        (loop [index 0
+               state :in-field
+               in-quoted-field false
+               field-buffer nil
+               rows []]
+          (let [last-row-index (- (count rows) 1)]
+            (if (< index data-length)
+              (let [char (nth data index)
+                    next-char (if (< index (- data-length 1))
+                                (nth data (inc index))
+                                nil)
+                    str-char (str char)]
+                (case state
+                  :in-field
+                  (condp = str-char
+                    "\""
+                    (if in-quoted-field
+                      (if (= (str next-char) "\"")
+                        (recur (+ index 2)
+                               :in-field
+                               true
+                               (str field-buffer char)
+                               rows)
+                        (recur (inc index) :in-field false field-buffer rows))
+                      (recur (inc index)
+                             :in-field
+                             true
+                             field-buffer
+                             (if (> (count rows) 0)
+                               rows
+                               (conj rows []))))
+
+                    separator
+                    (if in-quoted-field
+                      (recur (inc index)
+                             :in-field
+                             in-quoted-field
+                             (str field-buffer char)
+                             rows)
+                      (recur (inc index)
+                             :end-field
+                             in-quoted-field
+                             ""
+                             (conj-in rows last-row-index field-buffer)))
+
+                    "\r"
+                    (if (and (= newline :cr+lf) (not in-quoted-field))
+                      (recur (inc index)
+                             :in-field
+                             in-quoted-field
+                             field-buffer
+                             rows)
+                      (recur (inc index)
+                             :in-field
+                             in-quoted-field
+                             (str field-buffer char)
+                             rows))
+
+                    "\n"
+                    (if in-quoted-field
+                      (recur (inc index)
+                             :in-field
+                             in-quoted-field
+                             (str field-buffer char)
+                             rows)
+                      (recur (inc index)
+                             :end-line
+                             in-quoted-field
+                             ""
+                             (conj-in rows last-row-index field-buffer)))
+
+                    (recur (inc index)
+                           :in-field
+                           in-quoted-field
+                           (str field-buffer char)
+                           (if (> (count rows) 0)
+                             rows
+                             (conj rows []))))
+
+                  :end-field
+                  (condp = str-char
+                    "\""
+                    (recur (inc index) :in-field true field-buffer rows)
+
+                    separator
+                    (recur (inc index)
+                           :end-field
+                           in-quoted-field
+                           ""
+                           (conj-in rows last-row-index ""))
+
+                    "\n"
+                    (recur (inc index)
+                           :end-line
+                           in-quoted-field
+                           ""
+                           (conj-in rows last-row-index field-buffer))
+
+                    (recur (inc index) :in-field in-quoted-field str-char rows))
+
+                  :end-line
+                  (case str-char
+                    "\""
+                    (recur (inc index)
+                           :in-field
+                           true
+                           field-buffer
+                           (conj (or rows []) []))
+
+                    (recur (inc index)
+                           :in-field
+                           in-quoted-field
+                           (str field-buffer char)
+                           (conj (or rows []) [])))))
+              (conj-in rows last-row-index field-buffer)))))
+      (throw (clojerl.Error. newline-error-message)))))

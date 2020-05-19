@@ -1,0 +1,7 @@
+{ application
+, data_csv,
+  [ {description, "A library to read and write ?SV (e.g. CSV) data"}
+  , {vsn, git}
+  , {applications, [kernel, stdlib]}
+  ]
+}.
