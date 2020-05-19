@@ -5,11 +5,12 @@ Credit goes to https://github.com/testdouble/clojurescript.csv, as this is a tri
 ## Installation
 
 Assuming, you are familiar with Clojerl projects using Rebar3, here is how you add the latest version as a dependency to your project's rebar.config:
-
+```erlang
   {deps, [
           {clojerl, "0.6.0"}
          ,{data_csv, {git, "https://github.com/laczoka/data.csv.git", {branch, "master"}}}
          ]}.
+```
 
 ## Usage
 
@@ -38,13 +39,17 @@ Assuming, you are familiar with Clojerl projects using Rebar3, here is how you a
 
 Get the source code and compile it
 
+```bash
   git clone https://github.com/laczoka/data.csv.git
   cd data.csv
   rebar3 clojerl compile
+```
 
-Run tests
+Run the tests
 
+```bash
   rebar3 clojerl run tests --ns clojure.data.csv-test
+```
 
 ## Contributing
 
