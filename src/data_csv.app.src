@@ -3,5 +3,7 @@
   [ {description, "A library to read and write ?SV (e.g. CSV) data"}
   , {vsn, git}
   , {applications, [kernel, stdlib]}
+  , {licenses, ["MPL 1.0"]}
+  , {links, [{"Github", "https://github.com/laczoka/data_csv"}]}
   ]
 }.
